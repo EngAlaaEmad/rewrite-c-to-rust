@@ -26,7 +26,7 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
     let lastslash: *mut u8 = path;
     let traversal:  u32 = 0;
     let special_ftp_len:  u32 = 0;
-    //let NetCoalesceDoubleSlashIsRoot: netCoalesceFlags= netCoalesceFlags::NET_COALESCE_DOUBLE_SLASH_IS_ROOT;
+    let NetCoalesceDoubleSlashIsRoot: netCoalesceFlags= netCoalesceFlags::NET_COALESCE_DOUBLE_SLASH_IS_ROOT;
     
     /* Remember if this url is a special ftp one: */
     if flags & NetCoalesceDoubleSlashIsRoot {
@@ -43,32 +43,30 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
             
     }
     /* find the last slash before # or ? */
-    while *fwdPtr != '\0' && *fwdPtr != '?' && *fwdPtr != '#'{
+    while *fwdPtr != b'\0' && *fwdPtr != b'?' && *fwdPtr != b'#'{
         fwdPtr.add(1);
     }
     /* found nothing, but go back one only */
     /* if there is something to go back to */
-    if fwdPtr != path && *fwdPtr == '\0' {
+    if fwdPtr != path && *fwdPtr == b'\0' {
         fwdPtr.sub(1);
     }
 
     /* search the slash */
-    while fwdPtr != path && *fwdPtr != '/'{
+    while fwdPtr != path && *fwdPtr != b'/'{
         fwdPtr.sub(1);
     }
 
     lastslash = fwdPtr;
     fwdPtr = path;
-
-
     /* replace all %2E or %2e with . in the path */
     /* but stop at lastchar if non null */
-    while *fwdPtr != '\0' && *fwdPtr != '?' && *fwdPtr != '#' &&
-    *lastslash == '\0' || fwdPtr != lastslash {
-        if *fwdPtr == '%' && *(fwdPtr + 1) == '2' &&
-        (*(fwdPtr.add(2)) == 'E' || *(fwdPtr.add(2)) == 'e') {
-        *urlPtr += 1;
-        *urlPtr = '.';
+    while *fwdPtr != b'\0' && *fwdPtr != b'?' && *fwdPtr != b'#' &&
+    *lastslash == b'\0' || fwdPtr != lastslash {
+        if *fwdPtr == b'%' && *(fwdPtr.add(1)) == b'2' &&
+        (*(fwdPtr.add(2)) == b'E' || *(fwdPtr.add(2)) == b'e') {
+        *urlPtr+= 1;
+        *urlPtr = b'.';
         fwdPtr.add(1);
         fwdPtr.add(1);
         } else {
@@ -78,32 +76,32 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
         fwdPtr.add(1) ;
     }
     // Copy remaining stuff past the #?;
-    while *fwdPtr != '\0'{
+    while *fwdPtr != b'\0'{
         *urlPtr += 1;
         *urlPtr = *fwdPtr;
         fwdPtr.add(1);
     }
-    *urlPtr = '\0';  // terminate the url
+    *urlPtr = b'\0';  // terminate the url
     // start again, this time for real
     fwdPtr = path;
     urlPtr = path;
 
-    while *fwdPtr != '\0' && *fwdPtr != '?' && *fwdPtr != '#' {
-        if *fwdPtr == '/' && *(fwdPtr.add(1)) == '.' && *(fwdPtr.add(2)) == '/'{
+    while *fwdPtr != b'\0' && *fwdPtr != b'?' && *fwdPtr != b'#' {
+        if *fwdPtr == b'/' && *(fwdPtr.add(1)) == '.' && *(fwdPtr.add(2)) == b'/'{
             // remove . followed by slash
             fwdPtr.add(1);
-        } else if *fwdPtr == '/' && *(fwdPtr.add(1)) == '.' && *(fwdPtr.add(2)) == '.' &&
-            (*(fwdPtr.add(3)) == '/' ||
-                *(fwdPtr.add(3)) == '\0' ||  // This will take care of
-                *(fwdPtr.add(3)) == '?' ||   // something like foo/bar/..#sometag
-                *(fwdPtr.add(3)) == '#') {
+        } else if *fwdPtr == b'/' && *(fwdPtr.add(1)) == b'.' && *(fwdPtr.add(2)) == b'.' &&
+            (*(fwdPtr.add(3)) == b'/' ||
+                *(fwdPtr.add(3)) == b'\0' ||  // This will take care of
+                *(fwdPtr.add(3)) == b'?' ||   // something like foo/bar/..#sometag
+                *(fwdPtr.add(3)) == b'#') {
                 // remove foo/..
                 // reverse the urlPtr to the previous slash if possible
                 // if url does not allow relative root then drop .. above root
                 // otherwise retain them in the path
                 if traversal > 0 || !(flags & netCoalesceFlags::NET_COALESCE_ALLOW_RELATIVE_ROOT) {
                     if urlPtr != path { urlPtr.sub(1); }   // we must be going back at least by one
-                    while *urlPtr!= '/' && urlPtr!= path {
+                    while *urlPtr!= b'/' && urlPtr!= path {
                         traversal-= 1; // count back
                         fwdPtr.add(2); // forward the fwdPtr past the ../
                         urlPtr.sub(1);
@@ -120,7 +118,7 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
                     }
                     // special case if we have reached the end
                     // to preserve the last /
-                    if *fwdPtr == '.' && *(fwdPtr.add(1)) == '\0' { urlPtr.add(1); }
+                    if *fwdPtr == b'.' && *(fwdPtr.add(1)) == b'\0' { urlPtr.add(1); }
                 } else {
                     // there are to much /.. in this path, just copy them instead.
                     // forward the urlPtr past the /.. and copying it
@@ -129,7 +127,7 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
                     // /%2F and urlPtr just points at the "F" of "/%2F" then do
                     // not overwrite it with the /, just copy .. and move forward
                     // urlPtr.
-                    if special_ftp_len > 3 && urlPtr == path + special_ftp_len - 1{
+                    if special_ftp_len > 3 && urlPtr == path.add(special_ftp_len - 1){
                         urlPtr.add(1);
                     }
                     else { 
@@ -148,8 +146,8 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
                     
                     // count the hierachie, but only if we do not have reached
                     // the root of some special urls with a special root marker
-                    if *fwdPtr == '/' && *(fwdPtr.add(1)) != '.' &&
-                    (special_ftp_len != 2 || *(fwdPtr.add(1)) != '/'){
+                    if *fwdPtr == b'/' && *(fwdPtr.add(1)) != b'.' &&
+                    (special_ftp_len != 2 || *(fwdPtr.add(1)) != b'/'){
                     traversal +=1;
                     }
                     // copy the url incrementaly
@@ -166,16 +164,14 @@ pub extern "C" fn rust_net_CoalesceDirs(flags: netCoalesceFlags,path: *mut u8 ) 
     *     /foo/foo1/.   ->  /foo/foo1/
     */
 
-    if (urlPtr > (path.add(1))) && (*(urlPtr.sub(1)) == '.') && (*(urlPtr.sub(2)) == '/') { 
+    if (urlPtr > (path.add(1))) && (*(urlPtr.sub(1)) == b'.') && (*(urlPtr.sub(2)) == b'/') { 
        urlPtr.sub(1);
     }
     // Copy remaining stuff past the #?;
-    while *fwdPtr != '\0' {
+    while *fwdPtr != b'\0' {
         *urlPtr+= 1;
         *urlPtr = *fwdPtr;
         fwdPtr.add(1);
     }
-    *urlPtr = '\0';  // terminate the url 
- }
-
+    *urlPtr = b'\0';  // terminate the url 
 }
